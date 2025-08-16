@@ -9,6 +9,7 @@
 #include "custom_zcl/zcl_multistate_input.h"
 #include "zcl_include.h"
 #include "base_components/relay.h"
+#include "base_components/millis.h"
 #include "configs/nv_slots_cfg.h"
 
 #define MULTI_PRESS_CNT_TO_RESET    5
@@ -114,9 +115,8 @@ void switch_cluster_on_button_press(zigbee_switch_cluster *cluster)
   switch_cluster_report_action(cluster);
 
   if (
-    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_TOGGLE ||
-    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_MOMENTARY
-    )
+    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_TOGGLE
+  )
   {
     if (cluster->relay_mode == ZCL_ONOFF_CONFIGURATION_RELAY_MODE_RISE)
     {
@@ -187,12 +187,25 @@ void switch_cluster_on_button_press(zigbee_switch_cluster *cluster)
 void switch_cluster_on_button_release(zigbee_switch_cluster *cluster)
 {
   zigbee_relay_cluster *relay_cluster = &relay_clusters[cluster->relay_index - 1];
+  u32 now = millis();
 
   cluster->multistate_state = MUTLISTATE_NOT_PRESSED;
   switch_cluster_report_action(cluster);
 
   if (
-    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_TOGGLE
+    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_MOMENTARY &&
+    cluster->button->long_press_duration_ms < (now - cluster->button->pressed_at_ms)
+    )
+  {
+    /*
+     * Long press was processed earlier, do nothing.
+     */
+    return;
+  }
+
+  if (
+    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_TOGGLE ||
+    cluster->mode == ZCL_ONOFF_CONFIGURATION_SWITCH_TYPE_MOMENTARY
     )
   {
     if (cluster->relay_mode == ZCL_ONOFF_CONFIGURATION_RELAY_MODE_RISE)
